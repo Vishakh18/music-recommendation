@@ -7,7 +7,6 @@ A content-based Music Recommendation System built with **Python** and **Streamli
 ## 📌 Features
 
 - 🎧 **Interactive UI**: Clean, intuitive interface powered by Streamlit.
-- 🔍 **Song Selection**: Dropdown search to choose any track from the dataset.
 - ⚡ **Real-time Recommendations**: Get instantaneous recommendations based on similarity metrics.
 - 🖼️ **Album Artwork & Metadata**: Fetch album covers, artist names, and preview links.
 
@@ -18,8 +17,7 @@ A content-based Music Recommendation System built with **Python** and **Streamli
 - **Programming Language:** Python 3.8+
 - **Frontend / UI Framework:** [Streamlit](https://streamlit.io/)
 - **Data Handling:** Pandas, NumPy
-- **Machine Learning / Similarity:** Scikit-Learn (Cosine Similarity, Nearest Neighbors)
-- **Serialization:** Pickle / Joblib (for loading pre-calculated similarity matrices and dataframe artifacts)
+- **Machine Learning / Similarity:** Scikit-Learn (Cosine Similarity)
 
 ---
 
@@ -28,11 +26,10 @@ A content-based Music Recommendation System built with **Python** and **Streamli
 ```text
 music-recommendation/
 │
-├── app.py                  # Main Streamlit web application script
-├── df.pkl                  # Serialized DataFrame containing music metadata
-├── similarity.pkl          # Serialized similarity matrix computed from audio features
-├── requirements.txt        # Required Python packages
-└── README.md               # Project documentation
+├── app.py                             # Main Streamlit web application script
+├── df.pkl                             # Serialized DataFrame containing music metadata
+├── music_recommendation_model.ipynb   # main recommendation model
+└── README.md                          # Project documentation
 ```
 
 ---
@@ -93,7 +90,7 @@ Once executed, your default browser will open to `http://localhost:8501`.
 2. **Similarity Computation**: High-dimensional vectors representing each track are compared using **Cosine Similarity**:
    $$	ext{Cosine Similarity}(A, B) = \frac{A \cdot B}{\|A\| \|B\|}$$
 3. **Recommendation Pipeline**:
-   - The user selects a song from the UI dropdown.
+   - The user selects a song.
    - The app looks up the corresponding vector in the pre-computed `similarity.pkl` matrix.
    - The top $N$ tracks with the highest similarity scores are sorted and displayed to the user.
 
