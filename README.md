@@ -27,8 +27,9 @@ A content-based Music Recommendation System built with **Python** and **Streamli
 music-recommendation/
 │
 ├── app.py                             # Main Streamlit web application script
-├── df.pkl                             # Serialized DataFrame containing music metadata
+├── spotify_tracks (1).csv             # Serialized DataFrame containing music metadata
 ├── music_recommendation_model.ipynb   # main recommendation model
+|__ final_df.csv                       # final csv file with song clusters
 └── README.md                          # Project documentation
 ```
 
