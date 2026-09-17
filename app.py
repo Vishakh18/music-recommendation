@@ -5,7 +5,7 @@ import numpy as np
 
 # Load the clustered data
 try:
-    df = pd.read_csv("clustered_df.csv")
+    df = pd.read_csv("final_df.csv")
 except FileNotFoundError:
     st.error("Data file 'clustered_df.csv' not found. Please ensure it is in the same directory.")
     st.stop()
