@@ -90,7 +90,7 @@ with tab1:
     st.write("Generates recommendations prioritizing audio characteristics (tempo, energy, danceability, etc.).")
     
     # Search input (User must press Enter to trigger the search)
-    search_query = st.text_input("Search for a song (Case-sensitive, e.g., 'Such Keh Rha'):")
+    search_query = st.text_input("Search for a song :")
     
     if search_query:
         # changed case=False to case=True to enforce the explicit camel case requirement
