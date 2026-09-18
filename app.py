@@ -7,7 +7,7 @@ import numpy as np
 try:
     df = pd.read_csv("final_df.csv")
 except FileNotFoundError:
-    st.error("Data file 'clustered_df.csv' not found. Please ensure it is in the same directory.")
+    st.error("Data file 'final_df.csv' not found. Please ensure it is in the same directory.")
     st.stop()
 
 # Define numerical features used for clustering and similarity
@@ -15,23 +15,24 @@ numerical_features = [
     "valence", "danceability", "energy", "tempo",
     "acousticness", "liveness", "speechiness", "instrumentalness"
 ]
-
-def recommend_songs(song_name, df, num_recommendations=5):
+def recommend_songs(track_name, artist_name, df, num_recommendations=5):
     """
     Recommends songs based on cosine similarity of numerical features 
-    within the same cluster.
+    within the same cluster. Uses exact track and artist match.
     """
-    if song_name not in df["track_name"].values:
-        return None, f"Song '{song_name}' not found in the database."
-
-    # Extract target song data
-    input_song_row = df[df["track_name"] == song_name].iloc[0]
+    # 1. Exact match based on the dropdown selection
+    target_song_matches = df[(df["track_name"] == track_name) & (df["artist_name"] == artist_name)]
+    
+    if target_song_matches.empty:
+        return None, "Target song not found in the database."
+        
+    input_song_row = target_song_matches.iloc[0]
     input_song_cluster = input_song_row["Cluster"]
 
-    # Focus purely on the cluster pool to prioritize numerical traits
+    # 2. Focus purely on the cluster pool to prioritize numerical traits
     cluster_pool = df[df["Cluster"] == input_song_cluster].copy()
     
-    # FIX: Deduplicate based on name, artist, and language instead of just track_id
+    # Deduplicate based on name, artist, and language
     cluster_pool = cluster_pool.drop_duplicates(
         subset=['track_name', 'artist_name', 'language']
     ).reset_index(drop=True)
@@ -39,16 +40,16 @@ def recommend_songs(song_name, df, num_recommendations=5):
     if len(cluster_pool) < num_recommendations + 1:
         return None, "Not enough unique similar songs in the database to generate recommendations."
 
-    # Locate target song index in the clean pool
-    target_song_matches = cluster_pool[cluster_pool["track_name"] == song_name]
-    if target_song_matches.empty:
-        # Fallback for slight case differences if the exact match was dropped
-        target_song_matches = cluster_pool[cluster_pool["track_name"].str.lower() == song_name.lower()]
-        
-    if target_song_matches.empty:
+    # 3. Locate target song index in the clean pool
+    pool_target = cluster_pool[
+        (cluster_pool["track_name"] == track_name) & 
+        (cluster_pool["artist_name"] == artist_name)
+    ]
+    
+    if pool_target.empty:
         return None, "System error evaluating the target song after deduplication."
     
-    target_idx = target_song_matches.index[0]
+    target_idx = pool_target.index[0]
 
     # Calculate cosine similarity purely on numerical features
     cluster_features = cluster_pool[numerical_features]
@@ -68,7 +69,6 @@ def recommend_songs(song_name, df, num_recommendations=5):
     ]
 
     return recommendations, None
-
 # --- UI Configuration ---
 st.set_page_config(page_title="Audio Analytics & Recommendation", layout="wide")
 
@@ -83,45 +83,48 @@ with st.sidebar:
     min_popularity = st.slider("Minimum Popularity (Search)", min_value=0, max_value=100, value=0)
 
 # --- Main Layout (Tabs) ---
-tab1, tab2, tab3 = st.tabs(["Recommendations", "Keyword Search", "Artist Directory"])
+tab1, tab2 = st.tabs(["Recommendations", "Artist Directory"])
 
 with tab1:
     st.subheader("Feature-Based Recommendations")
     st.write("Generates recommendations prioritizing audio characteristics (tempo, energy, danceability, etc.).")
     
-    input_song_name = st.text_input("Target Track Name:")
+    # Search input (User must press Enter to trigger the search)
+    search_query = st.text_input("Search for a song (Case-sensitive, e.g., 'Such Keh Rha'):")
     
-    if st.button("Generate Recommendations", type="primary"):
-        if input_song_name:
-            recommended_songs_df, error = recommend_songs(input_song_name, df, num_recs)
+    if search_query:
+        # changed case=False to case=True to enforce the explicit camel case requirement
+        matches = df[df["track_name"].str.contains(search_query, case=False, na=False, regex=False)]
+        
+        if not matches.empty:
+            # Deduplicate matches to keep the dropdown clean
+            matches = matches.drop_duplicates(subset=["track_name", "artist_name"])
+            
+            # Map formatted display strings to row data
+            options = {f"{row['track_name']} (by {row['artist_name']})": row for _, row in matches.iterrows()}
+            
+            # Dropdown containing the matches
+            selected_display = st.selectbox("Select the exact track:", list(options.keys()))
+            
+            if st.button("Generate Recommendations", type="primary"):
+                # Extract exact track and artist from the user's selection
+                exact_track = options[selected_display]["track_name"]
+                exact_artist = options[selected_display]["artist_name"]
+                
+                # Pass exact track and artist to the updated function
+                recommended_songs_df, error = recommend_songs(exact_track, exact_artist, df, num_recs)
 
-            if recommended_songs_df is not None:
-                st.success("Recommendations generated successfully.")
-                st.dataframe(recommended_songs_df, hide_index=True, use_container_width=True)
-            else:
-                st.error(error)
+                if recommended_songs_df is not None:
+                    st.success(f"Showing recommendations based on: **{selected_display}**")
+                    st.dataframe(recommended_songs_df, hide_index=True, use_container_width=True)
+                else:
+                    st.error(error)
         else:
-            st.warning("Please enter a track name.")
+            st.warning(f"No tracks found named '{search_query}' in dataset.")
+
+
 
 with tab2:
-    st.subheader("Database Search")
-    search_keyword = st.text_input("Search by Track or Artist:")
-    
-    if search_keyword:
-        search_results = df[
-            (df["track_name"].str.contains(search_keyword, case=False, na=False) |
-             df["artist_name"].str.contains(search_keyword, case=False, na=False)) &
-            (df["popularity"] >= min_popularity)
-        ][["track_name", "artist_name", "year", "language", "popularity"]].drop_duplicates(
-            subset=['track_name', 'artist_name']
-        ).head(20)
-
-        if not search_results.empty:
-            st.dataframe(search_results, hide_index=True, use_container_width=True)
-        else:
-            st.info("No matching records found based on current criteria.")
-
-with tab3:
     st.subheader("Artist Popularity Analysis")
     artist_name_input = st.text_input("Artist Name:")
 
