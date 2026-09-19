@@ -17,8 +17,11 @@ numerical_features = [
 ]
 def recommend_songs(track_name, artist_name, df, num_recommendations=5):
     """
-    Recommends songs based on cosine similarity of numerical features 
-    within the same cluster. Uses exact track and artist match.
+    Recommends songs based on cluster match and cosine similarity,
+    prioritizing:
+      1. Tracks in the same language as the target song
+      2. Other languages (excluding Tamil & Telugu)
+      3. Tamil & Telugu tracks least
     """
     # 1. Exact match based on the dropdown selection
     target_song_matches = df[(df["track_name"] == track_name) & (df["artist_name"] == artist_name)]
@@ -28,6 +31,7 @@ def recommend_songs(track_name, artist_name, df, num_recommendations=5):
         
     input_song_row = target_song_matches.iloc[0]
     input_song_cluster = input_song_row["Cluster"]
+    target_language = str(input_song_row["language"]).strip().lower()
 
     # 2. Focus purely on the cluster pool to prioritize numerical traits
     cluster_pool = df[df["Cluster"] == input_song_cluster].copy()
@@ -51,22 +55,33 @@ def recommend_songs(track_name, artist_name, df, num_recommendations=5):
     
     target_idx = pool_target.index[0]
 
-    # Calculate cosine similarity purely on numerical features
+    # 4. Calculate cosine similarity purely on numerical features
     cluster_features = cluster_pool[numerical_features]
     similarity_matrix = cosine_similarity(cluster_features)
     
-    # Extract similarity scores for the target song
-    song_similarities = similarity_matrix[target_idx]
+    # Attach similarity scores to the pool
+    cluster_pool["similarity"] = similarity_matrix[target_idx]
     
-    # Sort indices by highest similarity score
-    similar_indices = np.argsort(song_similarities)[::-1]
-    
-    # Filter out the target song itself and grab the requested amount
-    similar_indices = [idx for idx in similar_indices if idx != target_idx][:num_recommendations]
+    # Exclude the target song itself
+    candidates = cluster_pool.drop(index=target_idx).copy()
 
-    recommendations = cluster_pool.iloc[similar_indices][
-        ["track_name", "year", "artist_name", "language"]
-    ]
+    # 5. Define language priority rank
+    def get_lang_priority(lang):
+        l = str(lang).strip().lower()
+        if l == target_language:
+            return 0  # Priority 1: Same language
+        elif l in ["tamil", "telugu"]:
+            return 2  # Priority 3: Tamil and Telugu ranked last
+        else:
+            return 1  # Priority 2: All other languages
+
+    candidates["lang_priority"] = candidates["language"].apply(get_lang_priority)
+
+    # 6. Sort by language priority (ascending) and similarity (descending)
+    recommendations = (
+        candidates.sort_values(by=["lang_priority", "similarity"], ascending=[True, False])
+        .head(num_recommendations)[["track_name", "year", "artist_name", "language"]]
+    )
 
     return recommendations, None
 # --- UI Configuration ---
@@ -90,7 +105,7 @@ with tab1:
     st.write("Generates recommendations prioritizing audio characteristics (tempo, energy, danceability, etc.).")
     
     # Search input (User must press Enter to trigger the search)
-    search_query = st.text_input("Search for a song :")
+    search_query = st.text_input("Search for a song (Case-sensitive, e.g., 'Such Keh Rha'):")
     
     if search_query:
         # changed case=False to case=True to enforce the explicit camel case requirement
