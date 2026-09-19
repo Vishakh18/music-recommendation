@@ -1,0 +1,16 @@
+name: Keep App Awake
+
+on:
+  schedule:
+    # Runs every 6 hours (Streamlit apps usually sleep after 48 hours)
+    - cron: '0 */6 * * *'
+  # Allows you to test it manually from the "Actions" tab
+  workflow_dispatch: 
+
+jobs:
+  ping-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Streamlit URL
+        run: |
+          curl -sI https://music-recommendation-myhydq4vjycn4nguklmktq.streamlit.app/ | head -n 1
